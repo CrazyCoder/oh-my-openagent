@@ -59,10 +59,21 @@ describe("resolveCompatibleModelSettings", () => {
     ])
   })
 
-  test("downgrades unsupported Claude Sonnet max variant to high when metadata is absent", () => {
+  test("keeps Claude Sonnet 4.6 max variant unchanged (Sonnet 4.6 supports max per docs)", () => {
     const result = resolveCompatibleModelSettings({
       providerID: "anthropic",
       modelID: "claude-sonnet-4-6",
+      desired: { variant: "max" },
+    })
+
+    expect(result.variant).toBe("max")
+    expect(result.changes).toEqual([])
+  })
+
+  test("downgrades unsupported Claude Sonnet 4.5 max variant to high when metadata is absent", () => {
+    const result = resolveCompatibleModelSettings({
+      providerID: "anthropic",
+      modelID: "claude-sonnet-4-5",
       desired: { variant: "max" },
     })
 
@@ -71,6 +82,24 @@ describe("resolveCompatibleModelSettings", () => {
       {
         field: "variant",
         from: "max",
+        to: "high",
+        reason: "unsupported-by-model-family",
+      },
+    ])
+  })
+
+  test("downgrades xhigh to high on Opus 4.6 (xhigh is Opus 4.7-only per docs)", () => {
+    const result = resolveCompatibleModelSettings({
+      providerID: "anthropic",
+      modelID: "claude-opus-4-6",
+      desired: { variant: "xhigh" },
+    })
+
+    expect(result.variant).toBe("high")
+    expect(result.changes).toEqual([
+      {
+        field: "variant",
+        from: "xhigh",
         to: "high",
         reason: "unsupported-by-model-family",
       },
@@ -158,7 +187,7 @@ describe("resolveCompatibleModelSettings", () => {
   test("handles combined variant and reasoningEffort normalization", () => {
     const result = resolveCompatibleModelSettings({
       providerID: "anthropic",
-      modelID: "claude-sonnet-4-6",
+      modelID: "claude-sonnet-4-5",
       desired: { variant: "max", reasoningEffort: "high" },
     })
 
@@ -214,7 +243,7 @@ describe("resolveCompatibleModelSettings", () => {
     for (const providerID of ["anthropic", "aws-bedrock", "bedrock", "amazon-bedrock", "opencode", "my-custom-proxy", "google-vertex-anthropic"]) {
       const result = resolveCompatibleModelSettings({
         providerID,
-        modelID: "claude-sonnet-4-6",
+        modelID: "claude-sonnet-4-5",
         desired: { variant: "max" },
       })
 
@@ -223,15 +252,22 @@ describe("resolveCompatibleModelSettings", () => {
     }
   })
 
-  test("detects Claude 3 Opus via any provider", () => {
+  test("detects Claude 3 Opus via any provider — clamps max (Opus 3 predates max support)", () => {
     const result = resolveCompatibleModelSettings({
       providerID: "some-unknown-proxy",
       modelID: "claude-3-opus-20240229",
       desired: { variant: "max" },
     })
 
-    expect(result.variant).toBe("max")
-    expect(result.changes).toEqual([])
+    expect(result.variant).toBe("high")
+    expect(result.changes).toEqual([
+      {
+        field: "variant",
+        from: "max",
+        to: "high",
+        reason: "unsupported-by-model-family",
+      },
+    ])
   })
 
   test("detects OpenAI reasoning models without requiring openai provider", () => {
@@ -616,6 +652,24 @@ describe("resolveCompatibleModelSettings", () => {
     ])
   })
 
+  test("converts manual thinking to adaptive on Opus 4.7+ (manual mode rejected by API)", () => {
+    const result = resolveCompatibleModelSettings({
+      providerID: "anthropic",
+      modelID: "claude-opus-4-7",
+      desired: { thinking: { type: "enabled", budget_tokens: 4096 } },
+    })
+
+    expect(result.thinking).toEqual({ type: "adaptive" })
+    expect(result.changes).toEqual([
+      {
+        field: "thinking",
+        from: "{\"type\":\"enabled\",\"budget_tokens\":4096}",
+        to: "{\"type\":\"adaptive\"}",
+        reason: "unsupported-by-model-family",
+      },
+    ])
+  })
+
   // A reasoning suffix makes the model id miss the capability snapshot, so `supportsTemperature`
   // arrives undefined and only family detection can decide. This is the case that still leaks
   // temperature into the outgoing request; the unsuffixed id is already snapshot-backed.
@@ -684,6 +738,39 @@ describe("resolveCompatibleModelSettings", () => {
     })
 
     expect(result.temperature).toBe(0.1)
+    expect(result.changes).toEqual([])
+  })
+
+  test("converts manual thinking (camelCase budgetTokens) to adaptive on Opus 4.7+", () => {
+    const result = resolveCompatibleModelSettings({
+      providerID: "anthropic",
+      modelID: "claude-opus-4-7",
+      desired: { thinking: { type: "enabled", budgetTokens: 4096 } },
+    })
+
+    expect(result.thinking).toEqual({ type: "adaptive" })
+    expect(result.changes[0]?.reason).toBe("unsupported-by-model-family")
+  })
+
+  test("leaves adaptive thinking unchanged on Opus 4.7", () => {
+    const result = resolveCompatibleModelSettings({
+      providerID: "anthropic",
+      modelID: "claude-opus-4-7",
+      desired: { thinking: { type: "adaptive" } },
+    })
+
+    expect(result.thinking).toEqual({ type: "adaptive" })
+    expect(result.changes).toEqual([])
+  })
+
+  test("leaves manual thinking unchanged on Opus 4.6 (still functional)", () => {
+    const result = resolveCompatibleModelSettings({
+      providerID: "anthropic",
+      modelID: "claude-opus-4-6",
+      desired: { thinking: { type: "enabled", budget_tokens: 4096 } },
+    })
+
+    expect(result.thinking).toEqual({ type: "enabled", budget_tokens: 4096 })
     expect(result.changes).toEqual([])
   })
 

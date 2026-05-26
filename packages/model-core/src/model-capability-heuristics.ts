@@ -10,17 +10,31 @@ export type HeuristicModelFamilyDefinition = {
   reasoningEffortAliases?: Record<string, string>
   supportsTemperature?: boolean
   supportsThinking?: boolean
+  thinkingMode?: "adaptive-only"
 }
 
 export const HEURISTIC_MODEL_FAMILY_REGISTRY: ReadonlyArray<HeuristicModelFamilyDefinition> = [
   {
-    family: "claude-opus",
-    pattern: /claude(?:-\d+(?:-\d+)*)?-opus/,
+    family: "claude-opus-4-7-plus",
+    pattern: /claude(?:-\d+(?:-\d+)*)?-opus-4-(?:[7-9]|\d{2,})/,
+    variants: ["low", "medium", "high", "xhigh", "max"],
+    supportsThinking: true,
+    thinkingMode: "adaptive-only",
+  },
+  {
+    family: "claude-opus-4-6",
+    pattern: /claude(?:-\d+(?:-\d+)*)?-opus-4-6/,
     variants: ["low", "medium", "high", "max"],
     supportsThinking: true,
   },
   {
-    family: "claude-non-opus",
+    family: "claude-sonnet-4-6-plus",
+    pattern: /claude(?:-\d+(?:-\d+)*)?-sonnet-4-(?:[6-9]|\d{2,})/,
+    variants: ["low", "medium", "high", "max"],
+    supportsThinking: true,
+  },
+  {
+    family: "claude",
     includes: ["claude"],
     variants: ["low", "medium", "high"],
     supportsThinking: true,

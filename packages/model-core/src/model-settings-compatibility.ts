@@ -195,14 +195,26 @@ export function resolveCompatibleModelSettings(
   }
 
   let thinking = input.desired.thinking
-  if (thinking !== undefined && input.capabilities?.supportsThinking === false) {
-    changes.push({
-      field: "thinking",
-      from: JSON.stringify(thinking),
-      to: undefined,
-      reason: "unsupported-by-model-metadata",
-    })
-    thinking = undefined
+  if (thinking !== undefined) {
+    if (input.capabilities?.supportsThinking === false) {
+      changes.push({
+        field: "thinking",
+        from: JSON.stringify(thinking),
+        to: undefined,
+        reason: "unsupported-by-model-metadata",
+      })
+      thinking = undefined
+    } else if (family?.thinkingMode === "adaptive-only" && thinking.type === "enabled") {
+      const { type: _type, budget_tokens: _budget, budgetTokens: _budgetCamel, ...rest } = thinking
+      const converted = { ...rest, type: "adaptive" }
+      changes.push({
+        field: "thinking",
+        from: JSON.stringify(thinking),
+        to: JSON.stringify(converted),
+        reason: "unsupported-by-model-family",
+      })
+      thinking = converted
+    }
   }
 
   return {

@@ -43,6 +43,12 @@ export function createThinkModeHook() {
         return
       }
 
+      const nestedVariant = (output.message.model as { variant?: string } | undefined)?.variant
+      if (nestedVariant === "high" || nestedVariant === "xhigh" || nestedVariant === "max") {
+        thinkModeState.set(sessionID, state)
+        return
+      }
+
       const currentModel = input.model
       if (!currentModel) {
         thinkModeState.set(sessionID, state)

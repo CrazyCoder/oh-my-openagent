@@ -62,6 +62,13 @@ function buildChatParamsInput(raw: unknown): ChatParamsHookInput | null {
   if (typeof modelID !== "string") return null
   if (typeof providerId !== "string") return null
 
+  if (typeof (message as Record<string, unknown>).variant !== "string") {
+    const nestedModel = (message as Record<string, unknown>).model
+    if (isRecord(nestedModel) && typeof nestedModel.variant === "string") {
+      ;(message as Record<string, unknown>).variant = nestedModel.variant
+    }
+  }
+
   return {
     sessionID,
     agent: { name: agentName },
