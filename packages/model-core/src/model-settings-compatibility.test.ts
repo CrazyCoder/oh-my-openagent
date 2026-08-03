@@ -106,6 +106,90 @@ describe("resolveCompatibleModelSettings", () => {
     ])
   })
 
+  test.each([
+    "claude-fable-5",
+    "claude-mythos-5",
+    "claude-opus-5",
+    "claude-sonnet-5",
+  ])("keeps the full effort ladder on %s", (modelID) => {
+    for (const requested of ["low", "medium", "high", "xhigh", "max"]) {
+      const result = resolveCompatibleModelSettings({
+        providerID: "anthropic",
+        modelID,
+        desired: { variant: requested },
+      })
+
+      expect(result.variant).toBe(requested)
+      expect(result.changes).toEqual([])
+    }
+  })
+
+  test.each([
+    "claude-fable-5",
+    "claude-opus-5",
+    "claude-sonnet-5",
+  ])("converts manual thinking to adaptive on %s (budget_tokens is a 400)", (modelID) => {
+    const result = resolveCompatibleModelSettings({
+      providerID: "anthropic",
+      modelID,
+      desired: { thinking: { type: "enabled", budget_tokens: 8000 } },
+    })
+
+    expect(result.thinking).toEqual({ type: "adaptive" })
+  })
+
+  test("Claude 5 patterns do not capture 4.x IDs", () => {
+    // `-opus-(?:[5-9]|\d{2,})` must not match `claude-opus-4-5`; if it did,
+    // Opus 4.5 would wrongly gain xhigh/max.
+    expect(
+      resolveCompatibleModelSettings({
+        providerID: "anthropic",
+        modelID: "claude-opus-4-5",
+        desired: { variant: "xhigh" },
+      }).variant,
+    ).toBe("high")
+
+    // Opus 4.8 must still resolve via the 4-7-plus family (xhigh allowed, max allowed).
+    expect(
+      resolveCompatibleModelSettings({
+        providerID: "anthropic",
+        modelID: "claude-opus-4-8",
+        desired: { variant: "xhigh" },
+      }).variant,
+    ).toBe("xhigh")
+
+    // Sonnet 4.6 keeps its own family (max allowed, xhigh not).
+    expect(
+      resolveCompatibleModelSettings({
+        providerID: "anthropic",
+        modelID: "claude-sonnet-4-6",
+        desired: { variant: "max" },
+      }).variant,
+    ).toBe("max")
+
+    // A dated legacy snapshot must not be read as a version number: the 8-digit
+    // date in `claude-3-opus-20240229` previously matched `\d{2,}`.
+    expect(
+      resolveCompatibleModelSettings({
+        providerID: "anthropic",
+        modelID: "claude-3-opus-20240229",
+        desired: { variant: "max" },
+      }).variant,
+    ).toBe("high")
+  })
+
+  test("Claude 5 ladder survives dated snapshots and two-digit majors", () => {
+    for (const modelID of ["claude-opus-5-20260724", "claude-opus-10", "claude-sonnet-12"]) {
+      expect(
+        resolveCompatibleModelSettings({
+          providerID: "anthropic",
+          modelID,
+          desired: { variant: "max" },
+        }).variant,
+      ).toBe("max")
+    }
+  })
+
   test("keeps supported GPT reasoningEffort unchanged", () => {
     const result = resolveCompatibleModelSettings({
       providerID: "openai",

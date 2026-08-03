@@ -14,6 +14,39 @@ export type HeuristicModelFamilyDefinition = {
 }
 
 export const HEURISTIC_MODEL_FAMILY_REGISTRY: ReadonlyArray<HeuristicModelFamilyDefinition> = [
+  // Claude 5 family (Fable/Mythos 5, Opus 5+, Sonnet 5+). These must precede the
+  // 4.x entries: the 4.x patterns pin a literal `-4-`, so a 5-series ID would
+  // otherwise fall through to the generic `claude` catch-all and be capped at
+  // `high`. All three take the full low..max ladder, and all three removed
+  // `budget_tokens` (a manual thinking config is a 400), hence adaptive-only.
+  //
+  // The version segment is `(?:[5-9]|\d{2})(?!\d)` — a single 5-9, or exactly
+  // two digits, in both cases not followed by more digits. A bare `\d{2,}`
+  // would swallow the date in legacy snapshot IDs like `claude-3-opus-20240229`
+  // and wrongly grant Opus 3 the full ladder. The trailing `(?!\d)` still
+  // permits a dated 5-series ID (`claude-opus-5-20260724`) and future
+  // two-digit majors (`claude-opus-10`).
+  {
+    family: "claude-fable-mythos-5",
+    pattern: /claude-(?:fable|mythos)-(?:[5-9]|\d{2})(?!\d)/,
+    variants: ["low", "medium", "high", "xhigh", "max"],
+    supportsThinking: true,
+    thinkingMode: "adaptive-only",
+  },
+  {
+    family: "claude-opus-5-plus",
+    pattern: /claude(?:-\d+(?:-\d+)*)?-opus-(?:[5-9]|\d{2})(?!\d)/,
+    variants: ["low", "medium", "high", "xhigh", "max"],
+    supportsThinking: true,
+    thinkingMode: "adaptive-only",
+  },
+  {
+    family: "claude-sonnet-5-plus",
+    pattern: /claude(?:-\d+(?:-\d+)*)?-sonnet-(?:[5-9]|\d{2})(?!\d)/,
+    variants: ["low", "medium", "high", "xhigh", "max"],
+    supportsThinking: true,
+    thinkingMode: "adaptive-only",
+  },
   {
     family: "claude-opus-4-7-plus",
     pattern: /claude(?:-\d+(?:-\d+)*)?-opus-4-(?:[7-9]|\d{2,})/,
